@@ -2,15 +2,5 @@
   "rewrites": [
     { "source": "/v1/chat/completions", "destination": "/api/v1/chat/completions" },
     { "source": "/v1/models", "destination": "/api/models" }
-  ],
-  "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
-        { "key": "Access-Control-Allow-Origin", "value": "*" },
-        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS" },
-        { "key": "Access-Control-Allow-Headers", "value": "Content-Type, Authorization" }
-      ]
-    }
   ]
 }
