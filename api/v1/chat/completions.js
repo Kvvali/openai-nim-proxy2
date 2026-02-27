@@ -2,8 +2,6 @@ const axios = require('axios');
 
 const NIM_API_BASE = 'https://integrate.api.nvidia.com/v1';
 const NIM_API_KEY = process.env.NIM_API_KEY;
-const SHOW_REASONING = false;
-const ENABLE_THINKING_MODE = false;
 
 const MODEL_MAPPING = {
   'gpt-3.5-turbo': 'nvidia/llama-3.1-nemotron-ultra-253b-v1',
@@ -15,16 +13,27 @@ const MODEL_MAPPING = {
   'gemini-pro': 'qwen/qwen3-next-80b-a3b-thinking'
 };
 
-module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+function setCORS(res) {
+  res.setHeader('Access-Control-Allow-Origin', 'https://janitorai.com');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-requested-with');
+  res.setHeader('Access-Control-Max-Age', '86400');
+}
 
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: { message: 'Method not allowed' } });
+module.exports = async function handler(req, res) {
+  setCORS(res);
+
+  // Handle preflight immediately
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: { message: 'Method not allowed' } });
+  }
 
   if (!NIM_API_KEY) {
-    return res.status(500).json({ error: { message: 'NIM_API_KEY environment variable is not set' } });
+    return res.status(500).json({ error: { message: 'NIM_API_KEY not set' } });
   }
 
   try {
@@ -51,7 +60,7 @@ module.exports = async function handler(req, res) {
       }
     });
 
-    res.status(200).json({
+    return res.status(200).json({
       id: `chatcmpl-${Date.now()}`,
       object: 'chat.completion',
       created: Math.floor(Date.now() / 1000),
@@ -66,7 +75,7 @@ module.exports = async function handler(req, res) {
 
   } catch (error) {
     console.error('Proxy error:', error.response?.data || error.message);
-    res.status(error.response?.status || 500).json({
+    return res.status(error.response?.status || 500).json({
       error: { message: error.response?.data?.detail || error.message || 'Internal server error' }
     });
   }
