@@ -13,15 +13,32 @@ const MODEL_MAPPING = {
   'gemini-pro': 'qwen/qwen3-next-80b-a3b-thinking'
 };
 
-module.exports = async function handler(req, res) {
+function setCORS(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-requested-with');
+  res.setHeader('Access-Control-Allow-Headers', '*');
   res.setHeader('Access-Control-Max-Age', '86400');
+}
 
-  if (req.method === 'OPTIONS') return res.status(204).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: { message: 'Method not allowed' } });
-  if (!NIM_API_KEY) return res.status(500).json({ error: { message: 'NIM_API_KEY not set' } });
+module.exports = async function handler(req, res) {
+  setCORS(res);
+
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+
+  // Health check
+  if (req.method === 'GET') {
+    return res.status(200).json({ status: 'ok', service: 'OpenAI to NVIDIA NIM Proxy' });
+  }
+
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: { message: 'Method not allowed' } });
+  }
+
+  if (!NIM_API_KEY) {
+    return res.status(500).json({ error: { message: 'NIM_API_KEY not set' } });
+  }
 
   try {
     const { model, messages, temperature, max_tokens } = req.body;
