@@ -1,4 +1,4 @@
-import axios from 'axios';
+const axios = require('axios');
 
 const NIM_API_BASE = 'https://integrate.api.nvidia.com/v1';
 const NIM_API_KEY = process.env.NIM_API_KEY;
@@ -15,13 +15,17 @@ const MODEL_MAPPING = {
   'gemini-pro': 'qwen/qwen3-next-80b-a3b-thinking'
 };
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: { message: 'Method not allowed' } });
+
+  if (!NIM_API_KEY) {
+    return res.status(500).json({ error: { message: 'NIM_API_KEY environment variable is not set' } });
+  }
 
   try {
     const { model, messages, temperature, max_tokens } = req.body;
@@ -39,7 +43,6 @@ export default async function handler(req, res) {
       messages,
       temperature: temperature || 0.6,
       max_tokens: max_tokens || 9024,
-      extra_body: ENABLE_THINKING_MODE ? { chat_template_kwargs: { thinking: true } } : undefined,
       stream: false
     }, {
       headers: {
@@ -53,20 +56,18 @@ export default async function handler(req, res) {
       object: 'chat.completion',
       created: Math.floor(Date.now() / 1000),
       model,
-      choices: response.data.choices.map(choice => {
-        let content = choice.message?.content || '';
-        if (SHOW_REASONING && choice.message?.reasoning_content) {
-          content = '<think>\n' + choice.message.reasoning_content + '\n</think>\n\n' + content;
-        }
-        return { index: choice.index, message: { role: choice.message.role, content }, finish_reason: choice.finish_reason };
-      }),
+      choices: response.data.choices.map(choice => ({
+        index: choice.index,
+        message: { role: choice.message.role, content: choice.message.content || '' },
+        finish_reason: choice.finish_reason
+      })),
       usage: response.data.usage || { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }
     });
 
   } catch (error) {
-    console.error('Proxy error:', error.message);
+    console.error('Proxy error:', error.response?.data || error.message);
     res.status(error.response?.status || 500).json({
-      error: { message: error.message || 'Internal server error', type: 'invalid_request_error' }
+      error: { message: error.response?.data?.detail || error.message || 'Internal server error' }
     });
   }
-}
+};
